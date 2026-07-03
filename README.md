@@ -100,6 +100,31 @@ pnpm test        # run vitest
 | `getWhoisInfo` | WHOIS lookup for a domain |
 | `fetchAsaReport` | Fetch the Automated Security Analysis report for a message |
 
+## Releasing
+
+CI (`.github/workflows/ci.yml`) runs typecheck + build + test on every PR and
+push to `main`. All actions are pinned to commit SHAs.
+
+Publishing uses npm [**staged publishing**](https://docs.npmjs.com/staged-publishing)
+via `.github/workflows/publish.yml`, which triggers on a published GitHub
+Release:
+
+1. The workflow runs `npm stage publish` (OIDC trusted publishing, provenance
+   attached automatically — no npm token stored in the repo). This **submits**
+   the release to npm's staging area; it does not go live.
+2. A maintainer reviews and approves it out-of-band with 2FA — either
+   `npm stage approve <stage-id>` or the **Staged Packages** tab on npmjs.com.
+
+First-time setup (one-off, because staging cannot create a new package):
+
+1. Publish the initial version manually: `pnpm build && npm publish --access public`.
+2. On npmjs.com, configure a **Trusted Publisher** (OIDC) pointing at this repo
+   and the `publish.yml` workflow.
+3. Subsequent releases flow through the staged-publish workflow.
+
+Requires npm >= 11.15.0 and Node >= 22.14.0 (the workflow upgrades npm; local
+maintainers approving a stage need it too).
+
 ## Security
 
 - The API key is read from `SUBLIME_API_KEY` at startup and used only to build

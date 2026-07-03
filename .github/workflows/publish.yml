@@ -1,0 +1,64 @@
+name: Publish
+
+# Staged publishing (https://docs.npmjs.com/staged-publishing): this workflow
+# SUBMITS a release to npm's staging area via `npm stage publish`. It does NOT
+# go live automatically — a maintainer must review and approve it with 2FA
+# (`npm stage approve <stage-id>` or the "Staged Packages" tab on npmjs.com).
+#
+# Requirements:
+#   - npm >= 11.15.0 and Node >= 22.14.0 (upgraded below; Node 24 base).
+#   - The package must ALREADY EXIST on the registry — staging cannot create a
+#     new package. Do the FIRST publish manually (`npm publish --access public`),
+#     configure a Trusted Publisher (OIDC) for this repo on npmjs.com, then all
+#     subsequent releases flow through this workflow.
+#   - OIDC trusted publishing means no npm token is stored in the repo; the
+#     `id-token: write` permission lets npm mint a short-lived credential and
+#     attach a provenance attestation automatically.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC trusted publishing + provenance
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+
+      # pnpm/action-setup@v6.0.9 — installs the pnpm version from packageManager
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+
+      # actions/setup-node@v6.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Socket Firewall (free) — screens every package download.
+      - name: Install Socket Firewall
+        run: npm install -g sfw@2.0.6
+
+      # Staged publishing requires npm >= 11.15.0, newer than the npm bundled
+      # with Node 24. Upgrade before staging.
+      - name: Upgrade npm (staged publishing needs >= 11.15.0)
+        run: sfw npm install -g npm@latest
+
+      - name: Install dependencies
+        run: sfw pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      # Submit to the staging area with provenance. A maintainer approves it
+      # out-of-band with 2FA to make it live.
+      - name: Stage publish to npm
+        run: npm stage publish --provenance --access public
