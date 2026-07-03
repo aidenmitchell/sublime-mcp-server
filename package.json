@@ -1,0 +1,35 @@
+{
+	"name": "sublime-mcp-server",
+	"version": "1.0.0",
+	"description": "Local (stdio) MCP server for the Sublime Security platform API — analyze email messages, validate detection rules, run threat hunts, and perform security analysis.",
+	"type": "module",
+	"bin": {
+		"sublime-mcp-server": "dist/index.js"
+	},
+	"files": ["dist", "README.md", "LICENSE"],
+	"author": "Aiden Mitchell <aiden@sublimesecurity.com>",
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsx src/index.ts",
+		"start": "node dist/index.js",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"prepublishOnly": "npm run build"
+	},
+	"keywords": ["mcp", "model-context-protocol", "sublime-security", "email-security"],
+	"license": "MIT",
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"zod": "^4.4.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"tsx": "^4.23.0",
+		"typescript": "^5.9.0",
+		"vitest": "^4.1.0"
+	}
+}
