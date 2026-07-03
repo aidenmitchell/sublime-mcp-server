@@ -1,0 +1,11 @@
+# Single-package repo — no `packages:` list needed. This file exists to hold
+# pnpm settings (config lives here, never in a .npmrc).
+blockExoticSubdeps: true
+allowBuilds:
+  esbuild: true
+# Block packages published less than 7 days ago (supply-chain cooldown).
+# When a security fix requires a newer package, add a pinned exception to
+# minimumReleaseAgeExclude with a GHSA/CVE comment.
+minimumReleaseAge: 10080
+# Reject dependency updates that drop npm provenance attestation (Socket).
+trustPolicy: no-downgrade

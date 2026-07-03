@@ -63,6 +63,22 @@ SUBLIME_API_KEY=... pnpm dev    # run with tsx (no build)
 
 ## Development
 
+This repo uses **pnpm** (pinned via `packageManager` and `.mise.toml`). Run
+`mise install` to get the pinned pnpm/node/sfw versions.
+
+Wrap every install-type command with [Socket Firewall](https://docs.socket.dev/docs/socket-firewall-free)
+(`sfw`) so downloads are screened for malicious packages:
+
+```bash
+sfw pnpm install          # install deps (screened)
+sfw pnpm add <pkg>@latest # add a dep (screened)
+```
+
+pnpm is configured (in `pnpm-workspace.yaml`) with a 7-day publish cooldown
+(`minimumReleaseAge`) and `trustPolicy: no-downgrade` to reject updates that drop
+npm provenance. When a security fix needs a package inside the cooldown window,
+add a pinned entry to `minimumReleaseAgeExclude` with a GHSA/CVE comment.
+
 ```bash
 pnpm build       # compile TypeScript to dist/
 pnpm typecheck   # tsc --noEmit

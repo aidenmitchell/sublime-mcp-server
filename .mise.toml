@@ -1,0 +1,16 @@
+[tools]
+pnpm = "10.33.4"
+node = "24.14.1"
+# Socket Firewall (free) — wraps package manager calls and blocks downloads of
+# packages Socket flags as malicious. See
+# https://docs.socket.dev/docs/socket-firewall-free
+# Installed from the `sfw` npm package (the official installer wrapper) so it
+# runs unauthenticated — no SOCKET_API_KEY required. Prefix every install-type
+# command with `sfw` (e.g. `sfw pnpm install`, `sfw pnpm add <pkg>`).
+"npm:sfw" = "2.0.6"
+
+[settings]
+lockfile = true
+install_before = "7d"
+# Install npm-backend tools (e.g. sfw) with pnpm instead of npm.
+npm.package_manager = "pnpm"
