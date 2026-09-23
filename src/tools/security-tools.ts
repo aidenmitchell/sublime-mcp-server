@@ -12,11 +12,17 @@ import { getApiKey } from "../auth.js";
 import {
 	filterHuntJobDetails,
 	filterUrlAnalysisResult,
+	formatValidationFailure,
+	formatValidationSuccess,
 	getApiHeaders,
 	transformHuntMessageGroups,
 	type UrlAnalysisResult,
 } from "../helpers.js";
-import type { ApiErrorResponse, HuntJobDetails } from "../types.js";
+import type {
+	ApiErrorResponse,
+	HuntJobDetails,
+	ValidateRuleResponse,
+} from "../types.js";
 
 export function registerSecurityTools(server: McpServer): void {
 	// Validate Rule tool
@@ -69,7 +75,33 @@ export function registerSecurityTools(server: McpServer): void {
 				);
 				if (validationError) return validationError;
 
-				return textResult("Rule successfully validated");
+				// A 200 does NOT mean the rule is valid. This endpoint reports invalid MQL
+				// with HTTP 200 and puts the verdict in `validation_error`, so the body has
+				// to be read. Deciding from the status alone made this tool pass unbalanced
+				// parens, functions that do not exist, and non-MQL text alike.
+				let result: ValidateRuleResponse;
+				try {
+					result = (await response.json()) as ValidateRuleResponse;
+				} catch (parseError) {
+					// Never fall back to success: an unreadable body means the verdict is
+					// unknown, and "unknown" must not look like "valid".
+					const detail =
+						parseError instanceof Error
+							? parseError.message
+							: String(parseError);
+					return errorResult(
+						`InvalidResponseError: could not parse the validation response body, so the rule's validity is unknown: ${detail}`,
+					);
+				}
+
+				if (
+					typeof result.validation_error === "string" &&
+					result.validation_error.trim() !== ""
+				) {
+					return errorResult(formatValidationFailure(result));
+				}
+
+				return textResult(formatValidationSuccess(result));
 			} catch (error) {
 				return wrapProcessingError(error);
 			}
