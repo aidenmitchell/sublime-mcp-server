@@ -1,3 +1,5 @@
+import type { SourceDiagnostic, ValidateRuleResponse } from "./types.js";
+
 // Define interface for MDM data structure
 export interface MdmData {
 	data_model?: {
@@ -33,6 +35,100 @@ export interface UrlAnalysisResult {
 	screenshot?: unknown;
 	final_dom?: Record<string, unknown>;
 	[key: string]: unknown;
+}
+
+/** Diagnostics the platform considers fatal. Absent severity defaults to "error". */
+function isErrorSeverity(severity: string | undefined): boolean {
+	return (severity ?? "error").toLowerCase() === "error";
+}
+
+/**
+ * Render one diagnostic as a single readable line.
+ *
+ * Positions arrive zero-based from the API; they are shown one-based here so they line up
+ * with what an editor reports.
+ */
+function formatDiagnostic(diagnostic: SourceDiagnostic): string {
+	const severity = (diagnostic.severity ?? "error").toLowerCase();
+	const line = diagnostic.range?.start?.line;
+	const column = diagnostic.range?.start?.column;
+	const where =
+		typeof line === "number"
+			? ` at line ${line + 1}${typeof column === "number" ? `, column ${column + 1}` : ""}`
+			: "";
+	const message = diagnostic.message?.trim() || "(no message)";
+
+	const alternatives = (diagnostic.actions ?? [])
+		.flatMap((action) => action.alternatives ?? [])
+		.filter((alternative) => alternative.length > 0);
+	const suggestion =
+		alternatives.length > 0 ? ` — did you mean: ${alternatives.join(", ")}?` : "";
+
+	return `[${severity}]${where}: ${message}${suggestion}`;
+}
+
+/**
+ * Format diagnostics for display, optionally limited to fatal ones.
+ *
+ * Returns an empty string when there is nothing to show, so callers can append it
+ * unconditionally.
+ */
+export function formatRuleDiagnostics(
+	diagnostics: SourceDiagnostic[] | undefined,
+	options: { errorsOnly?: boolean } = {},
+): string {
+	const selected = (diagnostics ?? []).filter((diagnostic) =>
+		options.errorsOnly ? isErrorSeverity(diagnostic.severity) : true,
+	);
+	if (selected.length === 0) return "";
+	return selected
+		.map((diagnostic) => `  ${formatDiagnostic(diagnostic)}`)
+		.join("\n");
+}
+
+/**
+ * Build the tool output for a rule that validated cleanly.
+ *
+ * Non-fatal diagnostics are surfaced rather than dropped: a warning or hint is the only
+ * signal that a clause is dead, which validation alone will never report as an error.
+ */
+export function formatValidationSuccess(
+	result: ValidateRuleResponse,
+): string {
+	const parts = ["Rule successfully validated"];
+
+	const advisories = (result.diagnostics ?? []).filter(
+		(diagnostic) => !isErrorSeverity(diagnostic.severity),
+	);
+	if (advisories.length > 0) {
+		parts.push(
+			`\nDiagnostics (non-fatal):\n${formatRuleDiagnostics(advisories)}`,
+		);
+	}
+
+	const lists = result.list ?? [];
+	const functions = result.functions ?? [];
+	const facts: string[] = [];
+	if (lists.length > 0) facts.push(`lists: ${lists.join(", ")}`);
+	if (functions.length > 0) facts.push(`functions: ${functions.join(", ")}`);
+	if (result.is_org_dependent !== undefined) {
+		facts.push(`org-dependent: ${result.is_org_dependent}`);
+	}
+	if (facts.length > 0) parts.push(`\nAnalysis — ${facts.join(" | ")}`);
+
+	return parts.join("\n");
+}
+
+/** Build the tool output for a rule the platform rejected. */
+export function formatValidationFailure(
+	result: ValidateRuleResponse,
+): string {
+	const parts = [`Rule validation failed: ${result.validation_error}`];
+	const errors = formatRuleDiagnostics(result.diagnostics, {
+		errorsOnly: true,
+	});
+	if (errors) parts.push(`\nDiagnostics:\n${errors}`);
+	return parts.join("\n");
 }
 
 /** Build standard request headers for Sublime API calls. */
